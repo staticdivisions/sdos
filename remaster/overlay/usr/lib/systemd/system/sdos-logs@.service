@@ -1,0 +1,6 @@
+[Unit]
+Description=sdOS: copy diagnostics to the boot partition (%i)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sdos-collect-logs %i

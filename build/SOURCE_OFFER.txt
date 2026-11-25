@@ -1,0 +1,29 @@
+WRITTEN OFFER FOR SOURCE CODE
+=============================
+
+sdOS is made by Static Divisions. This system image is built on ROCKNIX
+(https://github.com/ROCKNIX/distribution), upstream build 20261101,
+commit cefc14339a4ae18c02bb69888f27835e50664b60. It contains software licensed
+under the GNU General Public License (GPL) version 2 and version 3, the GNU
+Lesser General Public License (LGPL), and other free software licenses.
+
+1. Complete corresponding source for the unmodified ROCKNIX components is
+   published by the ROCKNIX project at the commit above:
+   https://github.com/ROCKNIX/distribution/tree/cefc14339a4ae18c02bb69888f27835e50664b60
+   That tree contains the build system and package recipes, and it pins the
+   exact upstream source of every package (kernel, u-boot, RetroArch, PPSSPP,
+   libretro cores and so on).
+
+2. Every change Static Divisions made (the frontend source, the boot splash
+   source, the patch and remaster scripts, the overlay files and a list of
+   changes) is available from us on request; see 3. The scripts rebuild this
+   image from the official upstream image.
+
+3. For at least three (3) years from the date we last distribute this image,
+   Static Divisions will give anyone who asks a complete machine-readable copy
+   of the corresponding source code for the GPL/LGPL parts of this image. We
+   provide it on a physical medium or by download. We charge no more than our
+   cost of physically performing the distribution.
+   Contact: staticdivisionsdesign@gmail.com (https://staticdivisions.com)
+
+No BIOS files, game files or encryption keys are included in this image.

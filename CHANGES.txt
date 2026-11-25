@@ -1,0 +1,28 @@
+sdOS 0.1.0: changes made to the official ROCKNIX H700 image 20261101 (cefc14339a4ae18c02bb69888f27835e50664b60)
+All changes are applied by remaster/remaster.sh, remaster/patch-system.sh and remaster/patch-initramfs.py.
+
+SYSTEM (squashfs):
+  + /usr/share/sd-ui/                 new frontend (frontend/sdui), VERSION, SOURCE_OFFER.txt
+  + /usr/bin/sd-ui.sh                 launcher (derived from start_es.sh)
+  + /usr/bin/sd-ui-select.sh          picks the OTA app layer or the built-in one; trial + rollback
+  ~ essway.service                    ExecStart=/usr/bin/sd-ui.sh, Description
+  - emulationstation, start_es.sh, rocknix-scraper, rocknix-es-thebezelproject, emustation.service,
+    ES theme (es-theme-art-book-next), ES resources/themes
+  ~ usr/config/system/configs/system.cfg   global.bezel=none, updates.enabled=0, system.hostname=sdos, psp.auto_frame_skip=1
+  ~ usr/bin/runemu.sh                 enable RetroArch network commands (localhost:55355) for every game
+  ~ PPSSPP ppsspp.ini / controls.ini  FrameSkip=1, AnisotropyLevel=0, F2/F4 keyboard bindings for save/load state
+  ~ usr/config/system-dirs.conf       only the common ROM folders are created
+  ~ etc/os-release, etc/motd, etc/issue    sdOS branding (BASED_ON=ROCKNIX)
+  - rocknix-report-stats timer/service (telemetry)
+  + usr/share/licenses/sdos/          GPL-2, GPL-3, LGPL-2.1, Manrope OFL, credits, source offer
+
+KERNEL (built-in initramfs, same Image size):
+  - usr/bin/rocknix-splash  + usr/bin/sdos-splash (splash/sdos-splash.c)
+  ~ init: splash path, USB gadget manufacturer string, one reinstall message
+
+Boot partition:
+  ~ SYSTEM, SYSTEM.md5, KERNEL, KERNEL.md5   + SOURCE_OFFER.txt     (bootloader and partition table untouched)
+
+0.1.7 image (2026-11-17): frontend = OTA 0.1.7 sdui (first-boot device picker); patch-system step 13 sets gb/gbc/gbh/gbch.analogue=0; build/SOURCE_OFFER.txt restored (was missing).
+
+0.1.8 image (2026-11-23): frontend 0.1.8 = faster game quit (menu returns at once, emulator reaped in the background; QUIT sent twice; "Still closing the last game" toast) + larger boot screen (mark, sdOS, STATIC DIVISIONS, staticdivisions.com/sdos/). patch-system: session append config sets quit_press_twice=false. Splash logo.h regenerated from the new boot frame.

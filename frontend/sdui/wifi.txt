@@ -1,0 +1,14 @@
+# Optional: Add your Wi-Fi here so you don't have to type it on the handheld.
+#
+# Type your Wi-Fi name right after "network=" and your password right after "password=" below.
+# Save this file, eject the SD card, and turn on your handheld.
+#
+# Example:
+#   network=HomeWiFi
+#   password=mysecretpassword
+#
+# On boot, sdOS connects automatically and erases your password from this file.
+# Leave both blank if you want to skip or set up Wi-Fi on the handheld instead.
+
+network=
+password=

@@ -1,0 +1,11 @@
+#!/bin/sh
+# sdOS: make sure Samba knows the root password before smbd starts.
+# ROCKNIX's 007-rootpw runs smbpasswd before /run/samba/smb.conf exists (smbpasswd is built to read
+# that path), so on a fresh card the Samba password file stayed empty and every login failed.
+. /etc/profile
+mkdir -p /run/samba /storage/.cache/samba
+[ -e /run/samba/smb.conf ] || ln -sf /etc/samba/smb.conf /run/samba/smb.conf
+P=$(get_setting root.password)
+[ -n "$P" ] || P=sdos
+printf '%s\n%s\n' "$P" "$P" | smbpasswd -s -a root >/dev/null 2>&1
+exit 0

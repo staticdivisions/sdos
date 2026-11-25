@@ -1,0 +1,53 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+# sdOS: copy boot/UI diagnostics to the boot partition (/flash/sdos-logs) so they can be read on a PC.
+# Usage: sdos-collect-logs <tag>   (tags used: early = ~20s after boot, late = ~90s, crash = sd-ui exited)
+TAG=${1:-manual}
+exec 9>/run/sdos-collect.lock; flock 9   # BusyBox flock: no -w
+T=$(mktemp -d /tmp/sdos-logs.XXXXXX) || exit 1
+O=${T}/${TAG}.txt
+sec() { echo; echo "===== $* ====="; }
+{
+  echo "sdOS diagnostics: ${TAG}"; date; echo "uptime: $(cat /proc/uptime)"
+  sec os-release; cat /etc/os-release
+  sec uname; uname -a; cat /proc/cmdline; echo; cat /proc/device-tree/model 2>/dev/null; echo
+  sec "systemctl status"; systemctl status --no-pager -l -n 40 essway.service sway.service rocknix-autostart.service 2>&1
+  sec "failed units"; systemctl --failed --no-pager 2>&1
+  sec "processes"; ps -ef 2>/dev/null || ps
+  sec "sd-ui.log (last 300)"; tail -n 300 /var/log/sd-ui.log 2>&1
+  sec "sway.log (last 200)"; tail -n 200 /var/log/sway.log 2>&1
+  sec "boot.log (last 100)"; tail -n 100 /var/log/boot.log 2>&1
+  sec "start_es.log"; tail -n 50 /var/log/start_es.log 2>&1
+  sec "sway config"; cat /storage/.config/sway/config 2>&1
+  sec "profile.d/095-sway + 090-ui_service"; cat /storage/.config/profile.d/095-sway /storage/.config/profile.d/090-ui_service 2>&1
+  sec "runtime dir"; ls -la /var/run/0-runtime-dir 2>&1
+  sec "app dirs"; ls -la /usr/share/sd-ui /usr/share/sd-ui/sdui /usr/share/sd-ui/sdui/fonts /storage/.config/sdui /storage/.config/sdui/app 2>&1
+  sec "state.json"; cat /storage/.config/sdui/state.json 2>&1
+  sec "python"; ls -la /usr/bin/python3* 2>&1
+  sec "drm"; for f in /sys/class/drm/card*-*/status; do echo "${f}: $(cat "${f}")"; done; cat /sys/class/drm/card*-*/modes 2>/dev/null
+  sec "input"; cat /proc/bus/input/devices 2>/dev/null | grep -E '^N:' 
+  sec "mounts"; cat /proc/mounts; df -h 2>/dev/null
+  sec "dmesg (last 150)"; dmesg 2>/dev/null | tail -n 150
+} >"${O}" 2>&1
+journalctl -b --no-pager -n 500 >"${T}/${TAG}-journal.txt" 2>&1
+tail -n 2000 /var/log/sd-ui.log >"${T}/${TAG}-sd-ui.log" 2>/dev/null
+tail -n 2000 /var/log/sway.log  >"${T}/${TAG}-sway.log" 2>/dev/null
+for f in "${T}"/*; do unix2dos "${f}" >/dev/null 2>&1; done   # BusyBox: in place
+
+RW=0
+if grep -q ' /flash [^ ]* ro[, ]' /proc/mounts; then mount -o remount,rw /flash && RW=1; fi
+mkdir -p /flash/sdos-logs
+BID=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
+if [ "$(cat /flash/sdos-logs/boot_id 2>/dev/null)" != "${BID}" ]; then
+  # first collection this boot: keep the previous boot's logs one level down
+  rm -rf /flash/sdos-logs/previous-boot; mkdir -p /flash/sdos-logs/previous-boot
+  mv /flash/sdos-logs/*.txt /flash/sdos-logs/*.log /flash/sdos-logs/previous-boot/ 2>/dev/null
+  rm -f /flash/sdos-logs/previous-boot/README.txt
+  echo "${BID}" >/flash/sdos-logs/boot_id
+fi
+cp "${T}"/* /flash/sdos-logs/ 2>/dev/null
+printf 'sdOS logs. Send this whole sdos-logs folder to Static Divisions if sdOS does not start.\r\nearly = 20 s after power-on, late = 90 s, crash = the menu stopped. previous-boot = the boot before.\r\n' >/flash/sdos-logs/README.txt
+sync
+[ "${RW}" = 1 ] && mount -o remount,ro /flash
+rm -rf "${T}"
+exit 0

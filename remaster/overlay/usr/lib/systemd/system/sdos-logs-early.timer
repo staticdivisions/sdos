@@ -1,0 +1,10 @@
+[Unit]
+Description=sdOS: diagnostics 20 s after boot
+
+[Timer]
+OnBootSec=20s
+AccuracySec=1s
+Unit=sdos-logs@early.service
+
+[Install]
+WantedBy=timers.target

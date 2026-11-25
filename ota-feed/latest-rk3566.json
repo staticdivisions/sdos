@@ -1,0 +1,13 @@
+{
+ "version": "0.1.13",
+ "url": "https://sd-os-updates.pages.dev/app/sdos-app-0.1.13.tar.gz",
+ "sha256": "09c3865f2651ec5a24739969ca81a51b7582ab6df4424f8b1e72887da58f4b95",
+ "size": 292477,
+ "notes": "New Swap A/B and Swap X/Y options in Settings, for handhelds with buttons labeled differently.",
+ "min_base": "0.1.2",
+ "channel": "stable",
+ "device": "h700",
+ "platforms": [
+  "RK3566"
+ ]
+}

@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+/cardwatch/sdos-cardwatch
+/splash/sdos-splash
+*.img
+*.img.gz
+*.img.gz.sha256
+*.tar.gz
+preview-out/
