@@ -10,6 +10,7 @@ VERSION = open(os.path.join(HERE, 'VERSION')).read().strip() if os.path.exists(o
 from . import ota, saves
 from . import wifi_txt as WIFITXT
 from . import btnswap
+from . import picture
 OTA_URL = ota.OTA_URL
 
 # Idle sleep is owned by sdui (ROCKNIX has no separate idle-to-sleep after ES was
@@ -464,6 +465,12 @@ class Mock(Base):
     def refresh_set_device_bat(self): pass
     def game_load(self): return 'Loaded', False
     def emu_menu(self): return 'Emulator menu opens here', False
+    def set_shader(self, key, live=True):
+        self._shader = key; return ''
+    def set_overlay(self, key, w, h):
+        self._overlay = key; return True
+    def swap_disc(self, target, count):
+        self._disc = target
     def suspend(self): pass
     def joy_controllers(self): return ''
 
@@ -1510,6 +1517,42 @@ class Device(Base):
             code, mods = key
             self.resume_game(); time.sleep(0.4); self.key_tap(code, mods); return '', True
         return 'This emulator opens its menu with its own button', False
+
+    # ---------- screen look + discs (RetroArch games) ----------
+    def set_shader(self, key, live=True):
+        """Save the shader for every RetroArch game (setsettings global.shaderset) and,
+        when one is running, switch it now over the network command port."""
+        kind = picture.shader_kind()
+        rel = picture.shader_rel(key, kind)
+        if rel and not os.path.exists(os.path.join(picture.SHADER_DIR, rel)):
+            log('shader %s missing: %s' % (key, rel)); return 'That look is not on this system'
+        self.set_setting('global.shaderset', rel or 'none')
+        if live and self.is_ra() and self.game_running():
+            path = picture.shader_live_path(key, kind)
+            if os.path.exists(path):
+                self.ra('SET_SHADER ' + path)
+        log('shader: %s (%s)' % (key, rel or 'none'))
+        return ''
+
+    def set_overlay(self, key, w, h):
+        """Overlays apply when a game starts (RetroArch has no command to swap one live)."""
+        try:
+            val = picture.write_overlay(key, w, h)
+        except Exception as e:
+            log('overlay write failed: %r' % (e,)); return False
+        self.set_setting('global.overlayset', val)
+        log('overlay: %s (%s)' % (key, val))
+        return True
+
+    def swap_disc(self, target, count):
+        """Change disc in the running RetroArch game (game already resumed)."""
+        cmds = picture.disc_commands(target, count)
+        def job():
+            time.sleep(0.5)
+            for c in cmds:
+                self.ra(c); time.sleep(0.3)
+            log('disc: -> %d of %d' % (target + 1, count))
+        bg(job)
 
     def quit_game(self):
         """Ask the emulator to exit and raise the menu immediately.

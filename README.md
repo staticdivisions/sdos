@@ -4,7 +4,7 @@ sdOS is a free, simple operating system for Anbernic XX handhelds, made by Stati
 
 sdOS is built on [ROCKNIX](https://github.com/ROCKNIX/distribution) and the open-source emulators it ships. This repository holds everything Static Divisions changed or added: the frontend, the boot splash, the card-removal watcher, the overlay files, and the scripts that turn an official ROCKNIX image into an sdOS image.
 
-Current version: **0.1.13**. See [RELEASES.md](RELEASES.md) and [CHANGES.txt](CHANGES.txt).
+Current version: **0.1.14**. See [RELEASES.md](RELEASES.md) and [CHANGES.txt](CHANGES.txt).
 
 ## Supported devices
 

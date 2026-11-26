@@ -6,6 +6,7 @@ from . import look as LK
 from .device import TZS, SETUP_FOLDERS, VERSION, TOOLS, MODELS, MODEL_AUTO, FAMILY, model_of, model_name, SETUP_STEPS, setup_model_rows
 from . import music as MU
 from . import btnswap
+from . import picture as PIC
 
 LANGS = [('English', True), ('Español', False), ('Français', False), ('Deutsch', False), ('Italiano', False), ('Português', False), ('日本語', False)]
 SLEEP = [('1 min', 60), ('3 min', 180), ('5 min', 300), ('10 min', 600), ('Never', 0)]
@@ -49,6 +50,10 @@ class App:
         self.sleep = int(st.get('sleep', 2))
         self.swap_ab = bool(st.get('swap_ab'))
         self.swap_xy = bool(st.get('swap_xy'))
+        self.ra_menu = st.get('ra_menu', True) is not False      # 0.1.14: Settings > RetroArch menu (Shown/Hidden)
+        self.shader = st.get('shader') if st.get('shader') in PIC.ids(PIC.SHADERS) else 'off'
+        self.overlay = st.get('overlay') if st.get('overlay') in PIC.ids(PIC.OVERLAYS) else 'off'
+        self.discs = []; self.disc = 0; self.disc_pick = 0; self._disc_for = None
         self.tz = st.get('tz') or ('America/Los_Angeles' if dev.mock else None)
         self.screen = 'boot'; self.dir = ''; self.t_enter = 0
         self.sel = {}; self.ctx = 'setup' if not self.setup_done else 'home'
@@ -66,6 +71,9 @@ class App:
         self._wifi_user_connect = False
         self.apply_look()
         self.apply_btn_swap(persist=False)
+        if self.overlay != 'off' and not dev.mock and not shot:
+            from .device import bg
+            bg(self.dev.set_overlay, self.overlay, self.W, self.H)
         if self.tz and not dev.mock:
             os.environ['TZ'] = self.tz; time.tzset()
         if dev.mock:
@@ -82,6 +90,7 @@ class App:
         self.dev.state.update(look=self.look, slots=self.slots, setupDone=self.setup_done, favs=sorted(self.favs),
                               recents=self.recents[:10], h24=self.h24, sleep=self.sleep, tz=self.tz,
                               swap_ab=self.swap_ab, swap_xy=self.swap_xy,
+                              ra_menu=self.ra_menu, shader=self.shader, overlay=self.overlay,
                               setupModelDone=self.setup_model_done, modelPrompted=self.model_prompted,
                               mtrialPreferKeep=self.mtrial_prefer_keep, setupResume=self.setup_resume)
         self.dev.save_state()
@@ -115,6 +124,35 @@ class App:
             self.swap_xy = bool(on)
         self.apply_btn_swap()
         self.dirty = True
+
+    def set_shader(self, d=1, key=None):
+        self.shader = key or PIC.step(PIC.SHADERS, self.shader, d); self.persist(); self.dirty = True
+        msg = self.dev.set_shader(self.shader)
+        if msg: self.toast(msg)
+
+    def set_overlay(self, d=1, key=None):
+        self.overlay = key or PIC.step(PIC.OVERLAYS, self.overlay, d); self.persist(); self.dirty = True
+        if not self.dev.set_overlay(self.overlay, self.W, self.H):
+            return self.toast('Could not save the overlay')
+        if self.screen == 'game' or self.ctx == 'game':
+            self.toast('Overlay starts next time you open a game')
+
+    def load_discs(self):
+        """Disc list for the running game (.m3u playlists only); cached per game."""
+        gm = self.game or {}
+        if self._disc_for == gm.get('path'):
+            return self.discs
+        self._disc_for = gm.get('path')
+        self.discs = PIC.m3u_discs(gm.get('path')) if self.game_ra() else []
+        if len(self.discs) < 2:
+            self.discs = []
+        self.disc = PIC.last_disc(gm['path']) if self.discs and not self.dev.mock else 0
+        self.disc = clamp(self.disc, 0, max(0, len(self.discs) - 1)); self.disc_pick = self.disc
+        return self.discs
+
+    def game_ra(self):
+        if not self.game or self.is_tool(): return False
+        return True if self.dev.mock else self.dev.is_ra()
 
     def set_look(self, L):
         self.look = LK.clean(L); self.apply_look(); self.persist()
@@ -1342,9 +1380,21 @@ class App:
         y = 0 if o == 3 else self.topbar('', 0, pw)
         h1, sub = ('Paused', gm['title']) if o == 2 else (gm['title'], sname + ' · paused')
         y += self.header(h1, sub, 0, y, 0, pw)
-        it = [{'label': x, 'rt': [('t', ('Slot 1' if self.saved else 'Empty'))] if x == 'Load state' and self.dev.mock else ([('t', 'Slot 1')] if x == 'Save state' and self.dev.mock else [])} for x in self.ovl_list()]
+        it = [{'label': x, 'rt': self.ovl_rt(x)} for x in self.ovl_list()]
         self.list_view('ovl', it, 0, y, pw, self.H - y - HINT_H[o])
-        self.hints([['B', 'Resume'], ['A', 'Select']], 0, pw)
+        cur = self.ovl_list()[self.s('ovl', len(it))] if it else ''
+        hint = [['◂▸', 'Change', 'l']] if cur in ('Disc', 'Shader', 'Overlay') else []
+        self.hints(hint + [['B', 'Resume'], ['A', 'Swap' if cur == 'Disc' else 'Select']], 0, pw)
+
+    def ovl_rt(self, x):
+        if x == 'Load state' and self.dev.mock: return [('t', 'Slot 1' if self.saved else 'Empty')]
+        if x == 'Save state' and self.dev.mock: return [('t', 'Slot 1')]
+        if x == 'Disc':
+            n = len(self.discs); mark = ' \u00b7 now' if self.disc_pick == self.disc else ''
+            return [('arrows', 'Disc %d of %d%s' % (self.disc_pick + 1, n, mark))]
+        if x == 'Shader': return [('arrows', PIC.label(PIC.SHADERS, self.shader))]
+        if x == 'Overlay': return [('arrows', PIC.label(PIC.OVERLAYS, self.overlay))]
+        return []
 
     def key_game(self, k):
         if not self.ovl:
@@ -1354,9 +1404,24 @@ class App:
             return
         if k in ('b', 'menu'): return self.resume()
         OV = self.ovl_list()
+        if k in ('left', 'right'):
+            o = OV[self.s('ovl', len(OV))]; d = -1 if k == 'left' else 1
+            if o == 'Disc' and self.discs: self.disc_pick = (self.disc_pick + d) % len(self.discs)
+            elif o == 'Shader': self.set_shader(d)
+            elif o == 'Overlay': self.set_overlay(d)
+            self.dirty = True; return
         if k == 'a':
             o = OV[self.s('ovl', len(OV))]
             if o == 'Resume': self.resume()
+            elif o == 'Disc':
+                if not self.discs: return
+                n = len(self.discs); t = self.disc_pick
+                self.resume()
+                self.dev.swap_disc(t, n)
+                self.disc = t
+                return self.toast('Disc %d of %d' % (t + 1, n))
+            elif o == 'Shader': self.set_shader(1)
+            elif o == 'Overlay': self.set_overlay(1)
             elif o == 'Save state':
                 if self.dev.mock: self.saved = True; return self.toast('Saved to slot 1')
                 msg, resumed = self.dev.game_save(); self.toast(msg)
@@ -1386,7 +1451,16 @@ class App:
         return bool(self.game) and self.game.get('sys') == 'tool'
 
     def ovl_list(self):
-        return OVL_TOOL if self.is_tool() else OVL
+        if self.is_tool(): return OVL_TOOL
+        ra = self.game_ra()
+        out = []
+        for x in OVL:
+            if x == 'Emulator settings':
+                if ra and self.load_discs(): out.append('Disc')
+                if ra: out += ['Shader', 'Overlay']
+                if ra and not self.ra_menu: continue
+            out.append(x)
+        return out
 
     def resume(self):
         self.ovl = False; self.dirty = True
@@ -1543,6 +1617,9 @@ class App:
             it.append({'label': 'Bluetooth', 'rt': [('t', self.bt_row_status()), ('chev',)], 'k': 'bt'})
         it += [{'label': 'Swap A/B', 'rt': [('arrows', 'On' if self.swap_ab else 'Off')], 'k': 'swap_ab'},
                {'label': 'Swap X/Y', 'rt': [('arrows', 'On' if self.swap_xy else 'Off')], 'k': 'swap_xy'},
+               {'label': 'Shader', 'rt': [('arrows', PIC.label(PIC.SHADERS, self.shader))], 'k': 'shader'},
+               {'label': 'Overlay', 'rt': [('arrows', PIC.label(PIC.OVERLAYS, self.overlay))], 'k': 'overlay'},
+               {'label': 'RetroArch menu', 'rt': [('arrows', 'Shown' if self.ra_menu else 'Hidden')], 'k': 'ra_menu'},
                {'label': 'Sleep after', 'rt': [('arrows', SLEEP[self.sleep][0])], 'k': 'sleep'},
                {'label': 'Update', 'rt': [('t', {'idle': 'Check now', 'checking': 'Checking…', 'new': 'Install ' + self.upd_msg, 'none': 'Up to date', 'err': 'Try again', 'reboot': 'Restarting…'}.get(self.upd, 'Check now')), ('chev',)], 'k': 'upd'},
                {'label': 'Add games', 'rt': [('t', 'How to copy'), ('chev',)], 'k': 'copy'},
@@ -1563,6 +1640,9 @@ class App:
               'bt': {'big': 'BT', 'sm': True, 'sub': self.bt_row_status()},
               'swap_ab': {'big': 'A/B', 'sub': 'On' if self.swap_ab else 'Off'},
               'swap_xy': {'big': 'X/Y', 'sub': 'On' if self.swap_xy else 'Off'},
+              'shader': {'big': PIC.label(PIC.SHADERS, self.shader), 'sm': True, 'sub': 'RetroArch games'},
+              'overlay': {'big': PIC.label(PIC.OVERLAYS, self.overlay), 'sm': True, 'sub': 'From the next game'},
+              'ra_menu': {'big': 'Shown' if self.ra_menu else 'Hidden', 'sm': True, 'sub': 'In the game menu'},
               'sleep': {'big': SLEEP[self.sleep][0].replace(' min', ''), 'sub': 'minutes' if self.sleep < 4 else ''},
               'upd': {'big': VERSION, 'sub': {'checking': 'Checking…', 'none': 'Up to date', 'new': 'New: ' + self.upd_msg}.get(self.upd, 'Version')},
               'about': {'big': 'Info', 'sm': True, 'sub': 'Open-source licenses'}, 'look': {'big': 'Aa', 'sub': LK.look_name(self.look)},
@@ -1586,6 +1666,9 @@ class App:
             elif row['k'] == 'sleep': self.sleep = clamp(self.sleep + d, 0, len(SLEEP) - 1); self.persist()
             elif row['k'] == 'swap_ab': self.set_btn_swap('ab', not self.swap_ab)
             elif row['k'] == 'swap_xy': self.set_btn_swap('xy', not self.swap_xy)
+            elif row['k'] == 'shader': self.set_shader(d)
+            elif row['k'] == 'overlay': self.set_overlay(d)
+            elif row['k'] == 'ra_menu': self.ra_menu = not self.ra_menu; self.persist()
             elif row['k'] == 'share': self.dev.set_share(not self.dev.share_on())
             self.dirty = True; return
         if k == 'a':
@@ -1602,6 +1685,9 @@ class App:
             if row['k'] == 'about': self.about_y = 0; return self.go('about')
             if row['k'] == 'swap_ab': self.set_btn_swap('ab', not self.swap_ab); return
             if row['k'] == 'swap_xy': self.set_btn_swap('xy', not self.swap_xy); return
+            if row['k'] == 'shader': return self.set_shader(1)
+            if row['k'] == 'overlay': return self.set_overlay(1)
+            if row['k'] == 'ra_menu': self.ra_menu = not self.ra_menu; self.persist(); self.dirty = True; return
             if row['k'] == 'share': self.dev.set_share(not self.dev.share_on()); self.dirty = True; return
             if row['k'] == 'copy': self.copy_path = self.dev.games_where(); return self.go('copy')
             if row['k'] == 'look': self.sel['look'] = 0; return self.go('look')
@@ -2129,6 +2215,24 @@ class App:
         if name == 'ingame':
             sy = self.sys_by('psp'); self.game = sy['games'][2]; self.ovl = True; self.sel['ovl'] = 0; self.saved = True
             return self.go('game')
+        if name in ('ingamedisc', 'ingameshader', 'ingamehidden'):
+            import tempfile
+            d = tempfile.mkdtemp(prefix='sdui-m3u-'); m = os.path.join(d, 'Opal Courier (USA).m3u')
+            open(m, 'w').write('Opal Courier (USA) (Disc 1).chd\nOpal Courier (USA) (Disc 2).chd\nOpal Courier (USA) (Disc 3).chd\n')
+            self.game = {'title': 'Opal Courier', 'sys': 'psx', 'path': m}; self._disc_for = None
+            self.ovl = True; self.saved = True
+            if name == 'ingamehidden': self.ra_menu = False
+            OV = self.ovl_list()
+            self.sel['ovl'] = OV.index('Disc' if name == 'ingamedisc' else 'Shader') if name != 'ingamehidden' else 0
+            if name == 'ingamedisc': self.disc_pick = 1
+            if name == 'ingameshader': self.shader = 'lines'
+            return self.go('game')
+        if name in ('setshader', 'setoverlay', 'setramenu'):
+            want = {'setshader': 'shader', 'setoverlay': 'overlay', 'setramenu': 'ra_menu'}[name]
+            keys = [r['k'] for r in self.set_items()]
+            self.sel['settings'] = keys.index(want) if want in keys else 0
+            if name == 'setoverlay': self.overlay = 'lines'
+            if name == 'setramenu': self.ra_menu = False
         if name == 'settings': self.sel['settings'] = 0
         if name in ('swapab', 'swapxy'):
             want = 'swap_ab' if name == 'swapab' else 'swap_xy'
@@ -2169,4 +2273,4 @@ class App:
         if name == 'model': self.sel['model'] = 0
         if name == 'look': self.sel['look'] = self.sel.get('look', 0)
         if name == 'color': self.sel['color'] = 1
-        self.go('mtrial' if name == 'mtrialkeep' else ('bt' if name in ('btoff', 'btscan') else ('settings' if name in ('swapab', 'swapxy') else name)))
+        self.go('mtrial' if name == 'mtrialkeep' else ('bt' if name in ('btoff', 'btscan') else ('settings' if name in ('swapab', 'swapxy', 'setshader', 'setoverlay', 'setramenu') else name)))

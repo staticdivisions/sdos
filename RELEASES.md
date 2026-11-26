@@ -1,6 +1,6 @@
 # Releases
 
-Current version: **0.1.13** (`frontend/sdui/VERSION`).
+Current version: **0.1.14** (`frontend/sdui/VERSION`).
 
 Each release gets a git tag `v<version>` that matches this list and the changelog at https://staticdivisions.com/sdos/. "Image" means a new card image on the download page. "OTA" means an over-the-air app-layer update from Settings > Update (needs base 0.1.2 or later).
 
@@ -8,6 +8,7 @@ Only 0.1.13 is in this first public commit. Earlier versions are listed for refe
 
 | Version | Date | Type | Notes |
 | --- | --- | --- | --- |
+| 0.1.14 | 2026-11-25 | OTA | Game menu: change disc for multi-disc games (.m3u), pick a shader (Sharp, Scanlines, LCD, CRT) or overlay (Scanlines, Grid). Settings: hide the RetroArch menu entry. |
 | 0.1.13 | 2026-11-24 | OTA | New Swap A/B and Swap X/Y options in Settings, for handhelds with buttons labeled differently. |
 | 0.1.12 | 2026-11-24 | OTA | Bluetooth turned on, with a Settings > Bluetooth screen for pairing controllers and headphones. |
 | 0.1.11 | 2026-11-24 | OTA | Sleep no longer turns on during setup, library scans, Wi-Fi transfers or updates. Sleep timer can be set to Never. |
