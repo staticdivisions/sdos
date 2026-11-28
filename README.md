@@ -63,7 +63,7 @@ Devices check the feed in `frontend/sdui/ota.py`. If you build your own version,
 
 ## Reporting bugs
 
-Join the Static Divisions Discord at https://discord.gg/7ewFaH8tXA and post in #sdos-help, or use the support page at https://staticdivisions.com/sdos/support/. Please include your handheld model, your sdOS version (Settings > About) and what you were doing when it went wrong. The diagnostic logs sdOS writes to the `sdos-logs` folder on the SDOS drive help a lot.
+Use the support page at https://staticdivisions.com/sdos/support/. Please include your handheld model, your sdOS version (Settings > About) and what you were doing when it went wrong. The diagnostic logs sdOS writes to the `sdos-logs` folder on the SDOS drive help a lot.
 
 ## License
 
